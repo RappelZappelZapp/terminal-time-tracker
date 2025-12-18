@@ -18,3 +18,6 @@ View your app in AI Studio: https://ai.studio/apps/temp/2
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## create temrinal alias
+Also create a ~/.zshrc and add an alias there, for example like this: alias tt="node ~/Downloads/terminal-time-tracker/cli.js"
