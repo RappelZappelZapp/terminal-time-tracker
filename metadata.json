@@ -1,0 +1,4 @@
+{
+  "name": "Terminal Time Tracker",
+  "description": "A minimalistic CLI time tracking application. Features JSON file storage (simulated), reporting, and zero dependencies."
+}
