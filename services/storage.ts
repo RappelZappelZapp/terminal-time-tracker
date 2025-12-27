@@ -40,10 +40,12 @@ export const generateReport = (month?: string): string => {
 
   // Aggregate
   const projectStats: Record<string, number> = {};
+  const dailyStats: Record<string, number> = {};
   let totalMinutes = 0;
 
   filtered.forEach(e => {
     projectStats[e.project] = (projectStats[e.project] || 0) + e.durationMinutes;
+    dailyStats[e.date] = (dailyStats[e.date] || 0) + e.durationMinutes;
     totalMinutes += e.durationMinutes;
   });
 
@@ -55,7 +57,15 @@ export const generateReport = (month?: string): string => {
   Object.entries(projectStats).forEach(([project, mins]) => {
     output += ` - ${project.padEnd(20)}: ${(mins / 60).toFixed(2)}h (${mins}m)\n`;
   });
-  
+
+  output += `\nBy Day:\n`;
+
+  Object.entries(dailyStats)
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .forEach(([date, mins]) => {
+        output += ` - ${date}: ${mins} minutes\n`;
+      });
+
   output += `---------------------\n`;
   return output;
 };

@@ -69,7 +69,24 @@ function generateReport(month) {
   Object.entries(projectStats).forEach(([project, mins]) => {
     output += ` - ${project.padEnd(20)}: ${(mins / 60).toFixed(2)}h (${mins}m)\n`;
   });
-  
+
+  output += `\nBy Day:\n`;
+
+  const dayStats = {};
+  filtered.forEach(e => {
+    dayStats[e.date] = (dayStats[e.date] || 0) + e.durationMinutes;
+  });
+
+  Object.entries(dayStats).sort().forEach(([date, mins]) => {
+    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dateObj = new Date(date + 'T00:00:00');
+    const dayName = weekdays[dateObj.getDay()];
+    const hours = (mins / 60).toFixed(2);
+    const hoursStr = hours.padStart(6);
+    const minsStr = mins.toString().padStart(3);
+    output += ` - ${date} (${dayName.padEnd(9)}): ${hoursStr}h (${minsStr}m)\n`;
+  });
+
   output += `---------------------\n`;
   return output;
 }

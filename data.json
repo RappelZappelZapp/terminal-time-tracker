@@ -6,5 +6,45 @@
     "date": "2025-12-17",
     "description": "'#284IPD Wagenreihung ablegen in ResiConnectedTrain'",
     "timestamp": 1765991051880
+  },
+  {
+    "id": "isimyg6",
+    "project": "resi",
+    "durationMinutes": 480,
+    "date": "2025-12-16",
+    "description": "'#284 update connected train coaches, refactoring: replace ResiConnectedTrainService with TrainPartService '",
+    "timestamp": 1766826343905
+  },
+  {
+    "id": "092yntx",
+    "project": "resi",
+    "durationMinutes": 480,
+    "date": "2025-12-18",
+    "description": "'#289 CoachNumberService'",
+    "timestamp": 1766827110212
+  },
+  {
+    "id": "7l6h1xa",
+    "project": "resi",
+    "durationMinutes": 480,
+    "date": "2025-12-19",
+    "description": "'#289 CoachNumberService, #269 UicUtils, #284 save position from ipd into resiConnectedTrain'",
+    "timestamp": 1766827134770
+  },
+  {
+    "id": "ix1a88j",
+    "project": "resi",
+    "durationMinutes": 480,
+    "date": "2025-12-22",
+    "description": "'#284 Add `numberOfTrainParts` to `TrainPartCoaches`, #284: Introduce reversal logic,#284: Add `patchIpdCoachIds` method to handle vehicle type updates'",
+    "timestamp": 1766827162625
+  },
+  {
+    "id": "raix9vg",
+    "project": "resi",
+    "durationMinutes": 480,
+    "date": "2025-12-23",
+    "description": "'#284: Replace `LinkedList` with `List` across services and tests for consistency and cleanup, #269: Use `UicUtils` to format `trainId` and `coachId` in `StarburstRblServiceClient` methods'",
+    "timestamp": 1766827187513
   }
 ]
