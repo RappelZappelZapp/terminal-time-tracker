@@ -162,7 +162,6 @@ Available commands:
   exit                                           Exit the application
 
 Examples:
-  Interactive Mode: node cli.js
   One-shot Mode:    node cli.js report
                     node cli.js add work 1.5 "Bug fixing"
       `);
@@ -194,7 +193,6 @@ Usage Examples:
     $ table 2023-01             # January 2023 entries only
 
   Modes:
-    Interactive:  $ node cli.js  (then type commands)
     One-shot:     $ node cli.js report
                   $ node cli.js add work 1.5 "Bug fixing"
   
