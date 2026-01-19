@@ -1,23 +1,22 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Terminal Time Tracker
 
-# Run and deploy your AI Studio app
+A simple CLI-based time tracker for your terminal.
 
-This contains everything you need to run your app locally.
+## Usage
 
-View your app in AI Studio: https://ai.studio/apps/temp/2
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
+1. **Install dependencies:**
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
 
-## create temrinal alias
-Also create a ~/.zshrc and add an alias there, for example like this: alias tt="node ~/Downloads/terminal-time-tracker/cli.js"
+2. **Run the tracker:**
+   `npm start`
+
+### create terminal alias
+Also create a ~/.zshrc and add an alias there, for example like this:
+`alias tt="node $(pwd)/cli.js"`
+
+## Commands
+- `add <project> <hours> [date] <description...>`: Add a new time entry
+- `report [YYYY-MM]`: View aggregated report
+- `table [YYYY-MM]`: View table format for Excel
+- `help`: Show available commands
+- `exit`: Exit the application
