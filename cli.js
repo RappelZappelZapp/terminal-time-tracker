@@ -2,6 +2,7 @@ import fs from 'fs';
 import readline from 'readline';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 // Replicate __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -9,87 +10,135 @@ const __dirname = path.dirname(__filename);
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 
-// --- Storage Service ---
+// --- Storage & Logic Service ---
 
-function getEntries() {
-  if (!fs.existsSync(DATA_FILE)) {
-    return [];
-  }
-  try {
-    const data = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (err) {
-    console.error("Error reading data file:", err.message);
-    return [];
-  }
-}
+const TrackerService = {
+  getEntries() {
+    if (!fs.existsSync(DATA_FILE)) return [];
+    try {
+      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    } catch (err) {
+      console.error("Error reading data file:", err.message);
+      return [];
+    }
+  },
 
-function saveEntry(entry) {
-  const entries = getEntries();
-  const newEntry = {
-    id: Math.random().toString(36).substring(2, 9),
-    project: entry.project,
-    durationMinutes: entry.durationMinutes,
-    date: entry.date,
-    description: entry.description,
-    timestamp: Date.now()
-  };
-  entries.push(newEntry);
-  fs.writeFileSync(DATA_FILE, JSON.stringify(entries, null, 2));
-  return newEntry;
-}
+  saveEntry({ project, durationMinutes, date, description }) {
+    const entries = this.getEntries();
+    const newEntry = {
+      id: crypto.randomBytes(4).toString('hex'),
+      project,
+      durationMinutes,
+      date,
+      description,
+      timestamp: Date.now()
+    };
+    entries.push(newEntry);
+    fs.writeFileSync(DATA_FILE, JSON.stringify(entries, null, 2));
+    return newEntry;
+  },
+
+  formatDuration(mins) {
+    return `${(mins / 60).toFixed(2)}h (${mins}m)`;
+  }
+};
 
 function generateReport(month) {
-  const entries = getEntries();
-  if (entries.length === 0) return "No data found.";
+    const entries = TrackerService.getEntries();
+    if (entries.length === 0) return "No data found.";
 
-  let filtered = entries;
-  let title = "Total Report";
+    let filtered = entries;
+    let title = "Total Report";
 
-  if (month) {
-    // month format YYYY-MM
-    filtered = entries.filter(e => e.date.startsWith(month));
-    title = `Report for ${month}`;
-  }
+    if (month) {
+        // month format YYYY-MM
+        filtered = entries.filter(e => e.date.startsWith(month));
+        title = `Report for ${month}`;
+    }
 
-  if (filtered.length === 0) return `No entries found for ${month || 'all time'}.`;
+    if (filtered.length === 0) return `No entries found for ${month || 'all time'}.`;
 
-  const projectStats = {};
-  let totalMinutes = 0;
+    const projectStats = {};
+    let totalMinutes = 0;
 
-  filtered.forEach(e => {
-    projectStats[e.project] = (projectStats[e.project] || 0) + e.durationMinutes;
-    totalMinutes += e.durationMinutes;
-  });
+    filtered.forEach(e => {
+        projectStats[e.project] = (projectStats[e.project] || 0) + e.durationMinutes;
+        totalMinutes += e.durationMinutes;
+    });
 
-  let output = `\n--- ${title} ---\n`;
-  output += `Total Time: ${(totalMinutes / 60).toFixed(2)} hours (${totalMinutes} mins)\n\n`;
-  output += `By Project:\n`;
-  
-  Object.entries(projectStats).forEach(([project, mins]) => {
-    output += ` - ${project.padEnd(20)}: ${(mins / 60).toFixed(2)}h (${mins}m)\n`;
-  });
+    let output = `\n--- ${title} ---\n`;
+    output += `Total Time: ${TrackerService.formatDuration(totalMinutes)}\n\n`;
+    output += `By Project:\n`;
 
-  output += `\nBy Day:\n`;
+    Object.entries(projectStats).forEach(([project, mins]) => {
+        output += ` - ${project.padEnd(20)}: ${TrackerService.formatDuration(mins)}\n`;
+    });
 
-  const dayStats = {};
-  filtered.forEach(e => {
-    dayStats[e.date] = (dayStats[e.date] || 0) + e.durationMinutes;
-  });
+    output += `\nBy Day:\n`;
 
-  Object.entries(dayStats).sort().forEach(([date, mins]) => {
-    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const dateObj = new Date(date + 'T00:00:00');
-    const dayName = weekdays[dateObj.getDay()];
-    const hours = (mins / 60).toFixed(2);
-    const hoursStr = hours.padStart(6);
-    const minsStr = mins.toString().padStart(3);
-    output += ` - ${date} (${dayName.padEnd(9)}): ${hoursStr}h (${minsStr}m)\n`;
-  });
+    const dayStats = {};
+    filtered.forEach(e => {
+        if (!dayStats[e.date]) {
+            dayStats[e.date] = {minutes: 0, entries: []};
+        }
+        dayStats[e.date].minutes += e.durationMinutes;
+        dayStats[e.date].entries.push(e);
+    });
 
-  output += `---------------------\n`;
-  return output;
+    Object.entries(dayStats).sort().forEach(([date, data]) => {
+        const dateObj = new Date(date + 'T00:00:00');
+        const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(dateObj);
+
+        // Add spacing before Monday (start of work week)
+        if (dateObj.getDay() === 1) {
+            output += `---------------------\n`;
+        }
+
+        const durationStr = TrackerService.formatDuration(data.minutes).padStart(15);
+        output += ` - ${date} (${dayName.padEnd(9)}): ${durationStr}\n`;
+
+        // Add entry details with descriptions
+        data.entries.forEach(entry => {
+            const projectStr = entry.project.padEnd(20);
+            const durationStr = `${entry.durationMinutes}m`.padEnd(6);
+            output += `   • ${projectStr} ${durationStr}${entry.description ? `: ${entry.description}` : ''}\n`;
+        });
+    });
+    output += `---------------------\n`;
+    return output;
 }
+
+function generateTable(month) {
+    const entries = TrackerService.getEntries();
+    if (entries.length === 0) return "No data found.";
+
+    let filtered = entries;
+
+    if (month) {
+        filtered = entries.filter(e => e.date.startsWith(month));
+    }
+
+    if (filtered.length === 0) return `No entries found for ${month || 'all time'}.`;
+
+    const dayStats = {};
+    filtered.forEach(e => {
+        if (!dayStats[e.date]) {
+            dayStats[e.date] = {descriptions: [], minutes: 0};
+        }
+        dayStats[e.date].descriptions.push(e.description);
+        dayStats[e.date].minutes += e.durationMinutes;
+    });
+
+    let output = `Date\tHours\tDescription\n`;
+    Object.entries(dayStats).sort().forEach(([date, data]) => {
+        const hours = (data.minutes / 60).toFixed(2);
+        const concatenatedDescriptions = data.descriptions.join('; ');
+        output += `${date}\t${hours}\t${concatenatedDescriptions}\n`;
+    });
+
+    return output;
+}
+
 
 // --- Command Execution Logic ---
 
@@ -107,6 +156,7 @@ Available commands:
                                                  Date format: YYYY-MM-DD (optional, defaults to today)
                                                  Description is mandatory.
   report [YYYY-MM]                               View aggregated report
+  table [YYYY-MM]                                View table format (date + descriptions) for Excel
   readme                                         Show usage info
   clear                                          Clear screen
   exit                                           Exit the application
@@ -128,11 +178,29 @@ Installation:
 Data:
   Stored in data.json in the current directory.
   
-Usage:
-  $ add project-alpha 1.5 "Initial setup"
-  $ add design 1 2023-01-01 "Homepage wireframe"
-  $ report
-  $ report 2023-01
+Usage Examples:
+
+  Add time entries:
+    $ add project-alpha 1.5 "Initial setup"
+    $ add design 2.25 "Homepage wireframe"
+    $ add backend 3 2023-01-01 "API development"
+  
+  Generate reports:
+    $ report                    # All-time aggregated report
+    $ report 2023-01            # Report for January 2023
+  
+  Export to Excel:
+    $ table                     # All entries in tab-separated format
+    $ table 2023-01             # January 2023 entries only
+
+  Modes:
+    Interactive:  $ node cli.js  (then type commands)
+    One-shot:     $ node cli.js report
+                  $ node cli.js add work 1.5 "Bug fixing"
+  
+  Tip: Create an alias for quick access:
+    alias tt="node ~/path/to/cli.js"
+    Then use: tt add project 2 "Task description"
       `);
       break;
 
@@ -169,7 +237,7 @@ Usage:
             console.log('\x1b[31mError: Description is mandatory.\x1b[0m');
           } else {
             description = args.slice(nextArgIndex).join(' ');
-            const entry = saveEntry({ project, durationMinutes: minutes, date, description });
+            const entry =TrackerService.saveEntry({ project, durationMinutes: minutes, date, description });
             console.log(`Entry added: ${entry.project} - ${hours}h (${minutes}m) on ${entry.date} - "${entry.description}"`);
           }
         }
@@ -180,7 +248,11 @@ Usage:
       console.log(generateReport(args[0]));
       break;
 
-    default:
+      case 'table':
+          console.log(generateTable(args[0]));
+          break;
+
+      default:
       console.log(`Command not found: ${command}. Type 'help' for available commands.`);
       break;
   }
