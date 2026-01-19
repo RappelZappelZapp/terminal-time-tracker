@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DATA_FILE = path.join(__dirname, 'data.json');
+const ACTIVE_COUNTER_FILE = path.join(__dirname, 'active_counter.json');
 
 // --- Storage & Logic Service ---
 
@@ -36,6 +37,74 @@ const TrackerService = {
     entries.push(newEntry);
     fs.writeFileSync(DATA_FILE, JSON.stringify(entries, null, 2));
     return newEntry;
+  },
+
+  startCounter(project, description) {
+    const state = {
+      project,
+      description,
+      startTime: Date.now(),
+      lastStartTime: Date.now(),
+      accumulatedTime: 0,
+      paused: false
+    };
+    fs.writeFileSync(ACTIVE_COUNTER_FILE, JSON.stringify(state, null, 2));
+    return state;
+  },
+
+  pauseCounter() {
+    const state = this.getActiveCounter();
+    if (!state || state.paused) return null;
+
+    state.accumulatedTime += Date.now() - state.lastStartTime;
+    state.paused = true;
+    state.lastStartTime = null;
+
+    fs.writeFileSync(ACTIVE_COUNTER_FILE, JSON.stringify(state, null, 2));
+    return state;
+  },
+
+  resumeCounter() {
+    const state = this.getActiveCounter();
+    if (!state || !state.paused) return null;
+
+    state.lastStartTime = Date.now();
+    state.paused = false;
+
+    fs.writeFileSync(ACTIVE_COUNTER_FILE, JSON.stringify(state, null, 2));
+    return state;
+  },
+
+  stopCounter() {
+    const state = this.getActiveCounter();
+    if (!state) return null;
+
+    let totalElapsed = state.accumulatedTime;
+    if (!state.paused) {
+      totalElapsed += Date.now() - state.lastStartTime;
+    }
+
+    const durationMinutes = Math.round(totalElapsed / (1000 * 60));
+    const date = new Date().toISOString().split('T')[0];
+
+    const entry = this.saveEntry({
+      project: state.project,
+      durationMinutes,
+      date,
+      description: state.description
+    });
+
+    fs.unlinkSync(ACTIVE_COUNTER_FILE);
+    return { entry, durationMinutes };
+  },
+
+  getActiveCounter() {
+    if (!fs.existsSync(ACTIVE_COUNTER_FILE)) return null;
+    try {
+      return JSON.parse(fs.readFileSync(ACTIVE_COUNTER_FILE, 'utf8'));
+    } catch (err) {
+      return null;
+    }
   },
 
   formatDuration(mins) {
@@ -152,6 +221,11 @@ function executeCommand(command, args) {
     case 'help':
       console.log(`
 Available commands:
+  start <project> <description...>               Start a background counter
+  pause                                          Pause the active counter
+  resume                                         Resume the paused counter
+  stop                                           Stop the active counter and save the entry
+  status                                         Check the status of the active counter
   add <project> <hours> [date] <description...>  Add a new time entry
                                                  Date format: YYYY-MM-DD (optional, defaults to today)
                                                  Description is mandatory.
@@ -164,6 +238,10 @@ Available commands:
 Examples:
   One-shot Mode:    node cli.js report
                     node cli.js add work 1.5 "Bug fixing"
+                    node cli.js start project-x "Working on feature"
+                    node cli.js pause
+                    node cli.js resume
+                    node cli.js stop
       `);
       break;
 
@@ -179,7 +257,14 @@ Data:
   
 Usage Examples:
 
-  Add time entries:
+  Start/Stop counter:
+    $ start project-x "Developing new feature"
+    $ status
+    $ pause
+    $ resume
+    $ stop
+
+  Add time entries manually:
     $ add project-alpha 1.5 "Initial setup"
     $ add design 2.25 "Homepage wireframe"
     $ add backend 3 2023-01-01 "API development"
@@ -194,16 +279,90 @@ Usage Examples:
 
   Modes:
     One-shot:     $ node cli.js report
-                  $ node cli.js add work 1.5 "Bug fixing"
+                  $ node cli.js start project-x "Task"
+                  $ node cli.js pause
+                  $ node cli.js stop
   
   Tip: Create an alias for quick access:
     alias tt="node ~/path/to/cli.js"
-    Then use: tt add project 2 "Task description"
+    Then use: tt start project-x "Task"
       `);
       break;
 
     case 'clear':
       console.clear();
+      break;
+
+    case 'start':
+      if (args.length < 2) {
+        console.log('\x1b[31mUsage: start <project> <description...>\x1b[0m');
+      } else {
+        const active = TrackerService.getActiveCounter();
+        if (active) {
+          console.log(`\x1b[31mError: A counter is already running for project "${active.project}". Stop it first.\x1b[0m`);
+        } else {
+          const project = args[0];
+          const description = args.slice(1).join(' ');
+          TrackerService.startCounter(project, description);
+          console.log(`\x1b[32mCounter started for project "${project}"\x1b[0m`);
+        }
+      }
+      break;
+
+    case 'stop':
+      const result = TrackerService.stopCounter();
+      if (result) {
+        const { entry, durationMinutes } = result;
+        console.log(`\x1b[32mCounter stopped. Recorded ${durationMinutes}m for project "${entry.project}".\x1b[0m`);
+      } else {
+        console.log('\x1b[31mNo active counter found.\x1b[0m');
+      }
+      break;
+
+    case 'pause':
+      if (TrackerService.pauseCounter()) {
+        console.log('\x1b[33mCounter paused.\x1b[0m');
+      } else {
+        const active = TrackerService.getActiveCounter();
+        if (!active) {
+          console.log('\x1b[31mNo active counter found.\x1b[0m');
+        } else if (active.paused) {
+          console.log('\x1b[31mCounter is already paused.\x1b[0m');
+        }
+      }
+      break;
+
+    case 'resume':
+      if (TrackerService.resumeCounter()) {
+        console.log('\x1b[32mCounter resumed.\x1b[0m');
+      } else {
+        const active = TrackerService.getActiveCounter();
+        if (!active) {
+          console.log('\x1b[31mNo active counter found.\x1b[0m');
+        } else if (!active.paused) {
+          console.log('\x1b[31mCounter is already running.\x1b[0m');
+        }
+      }
+      break;
+
+    case 'status':
+      const active = TrackerService.getActiveCounter();
+      if (active) {
+        let totalElapsed = active.accumulatedTime;
+        if (!active.paused) {
+          totalElapsed += Date.now() - active.lastStartTime;
+        }
+        const elapsedMinutes = Math.round(totalElapsed / (1000 * 60));
+        
+        console.log(`\x1b[36mActive Counter:\x1b[0m`);
+        console.log(` - Project: ${active.project}`);
+        console.log(` - Description: ${active.description}`);
+        console.log(` - Status: ${active.paused ? '\x1b[33mPaused\x1b[0m' : '\x1b[32mRunning\x1b[0m'}`);
+        console.log(` - Started: ${new Date(active.startTime).toLocaleTimeString()}`);
+        console.log(` - Elapsed: ${TrackerService.formatDuration(elapsedMinutes)}`);
+      } else {
+        console.log('No active counter.');
+      }
       break;
 
     case 'add':
